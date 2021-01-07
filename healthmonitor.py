@@ -1,7 +1,9 @@
 import argparse
 import requests
 import datetime
+import threading
 import subprocess
+from time import sleep
 
 def responsetime_clowder(server, wait_sec=1):
     cmd = "ping -c {} -W {} {}".format(1, wait_sec, server).split(' ')
@@ -34,16 +36,10 @@ def download_clowderhomepage(server):
         success = False
     return {"success": success, "bytes": bytes}
 
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--server", default="localhost:9000", help="Clowder website url")
-    parser.add_argument("--downloadurl", default="localhost:9000", help="download url of web page")
-    parser.add_argument("--ping_wait_sec", default=1, help="ping command default wait time in second")
-    args = parser.parse_args()
-    print(args.server)
-    response_time = responsetime_clowder(args.server, args.ping_wait_sec)
+def ping_thread_func(server, ping_wait_sec):
+    response_time = responsetime_clowder(server, ping_wait_sec)
     print(response_time)
+    # TODO: send response_time
     uptime = 0
     total_runs = 0
     with open("./total.txt", "r") as myfile:
@@ -58,9 +54,37 @@ if __name__ == '__main__':
         liveness += 1
     uptime = float(liveness)/total_runs
     print("uptime: %f" % uptime)
+    # TODO: send uptime
 
     with open("./total.txt", 'w') as filetowrite:
         filetowrite.write(str(total_runs))
 
-    download_homepage_status = download_clowderhomepage(args.downloadurl)
-    print(download_homepage_status)
+def download_homepage_thread_func(downloadurl):
+    try:
+        download_homepage_status = download_clowderhomepage(downloadurl)
+        print(download_homepage_status)
+        #TODO: send download_homepage_status
+    except Exception as e:
+        pass
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--server", default="localhost:9000", help="Clowder website url")
+    parser.add_argument("--sleep_timer_sec", default=1, help="sleep time in second between each run")
+    parser.add_argument("--downloadurl", default="localhost:9000", help="download url of web page")
+    parser.add_argument("--ping_wait_sec", default=1, help="ping command default wait time in second")
+    args = parser.parse_args()
+    print(args.server)
+
+    while (True):
+        threads = list()
+        ping_thread = threading.Thread(target=ping_thread_func, args=(args.server, args.ping_wait_sec,))
+        download_thread = threading.Thread(target=download_homepage_thread_func, args=(args.downloadurl,))
+        threads.append(ping_thread)
+        threads.append(download_thread)
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        sleep(args.sleep_timer_sec)
