@@ -5,6 +5,13 @@ import json
 import threading
 import subprocess
 from time import sleep
+from time import gmtime
+import logging
+
+logging.Formatter.converter = gmtime
+logging.basicConfig(level=logging.INFO, datefmt='%Y-%m-%dT%H:%M:%S',
+                    format='%(asctime)-15s.%(msecs)03dZ %(levelname)-7s [%(threadName)-10s] : %(name)s - %(message)s')
+__logger = logging.getLogger("events_building_block")
 
 def responsetime_clowder(server, wait_sec=1):
     cmd = "ping -c {} -W {} {}".format(1, wait_sec, server).split(' ')
@@ -34,7 +41,7 @@ def clowder_healthy(server):
         if message == "healthy":
             healthy = True
     except Exception as e:
-        pass
+        __logger.exception(e)
     return healthy
 
 def download_clowderhomepage(server):
@@ -45,57 +52,62 @@ def download_clowderhomepage(server):
         response.raise_for_status()
         bytes = len(response.content)
     except Exception as e:
+        __logger.exception(e)
         success = False
     return {"success": success, "bytes": bytes}
 
-def ping_thread_func(server, ping_wait_sec, report_url, report_apikey):
-    status = dict()
-    healthy = clowder_healthy(server)
-    status['healthy'] = healthy
-    response_time = responsetime_clowder(server, ping_wait_sec)
-    status['response_time'] = response_time
-    # print(response_time)
-    uptime = 0
-    total_runs = 0
-    with open("./total.txt", "r") as myfile:
-        total = myfile.readlines()
-    try:
-        total_runs = int(total[0])
-    except Exception as e:
-        pass
-    liveness = total_runs
-    total_runs += 1
-    if response_time.get('loss') == '0%' or response_time.get('loss') == '0.0%':
-        liveness += 1
-    uptime = float(liveness)/total_runs
-    # print("uptime: %f" % uptime)
-    status['uptime'] = uptime
+def ping_thread_func(server, ping_wait_sec, report_url, report_apikey, sleep_timer_sec):
+    while (True):
+        status = dict()
+        healthy = clowder_healthy(server)
+        status['healthy'] = healthy
+        response_time = responsetime_clowder(server, ping_wait_sec)
+        status['response_time'] = response_time
+        # print(response_time)
+        uptime = 0
+        total_runs = 0
+        with open("./total.txt", "r") as myfile:
+            total = myfile.readlines()
+        try:
+            total_runs = int(total[0])
+        except Exception as e:
+            __logger.exception(e)
+        liveness = total_runs
+        total_runs += 1
+        if response_time.get('loss') == '0%' or response_time.get('loss') == '0.0%':
+            liveness += 1
+        uptime = float(liveness)/total_runs
+        # print("uptime: %f" % uptime)
+        status['uptime'] = uptime
 
-    # print(status)
-    try:
-        r = requests.post(report_url, headers={"Content-Type": "application/json", "API-KEY": report_apikey},
-                          data=json.dumps({"ping_status": status}))
-        r.raise_for_status()
-    except Exception as e:
-        pass
-
-    with open("./total.txt", 'w') as filetowrite:
-        filetowrite.write(str(total_runs))
-
-def download_homepage_thread_func(downloadurl, report_url, report_apikey):
-    homepage_status = dict()
-    try:
-        download_homepage_status = download_clowderhomepage(downloadurl)
-        # print(download_homepage_status)
-        homepage_status['homepage_status'] = download_homepage_status
+        # print(status)
         try:
             r = requests.post(report_url, headers={"Content-Type": "application/json", "API-KEY": report_apikey},
-                              data=json.dumps(homepage_status))
+                              data=json.dumps({"ping_status": status}))
             r.raise_for_status()
         except Exception as e:
-            pass
-    except Exception as e:
-        pass
+            __logger.exception(e)
+
+        with open("./total.txt", 'w') as filetowrite:
+            filetowrite.write(str(total_runs))
+        sleep(sleep_timer_sec)
+
+def download_homepage_thread_func(downloadurl, report_url, report_apikey, sleep_timer_sec):
+    while (True):
+        homepage_status = dict()
+        try:
+            download_homepage_status = download_clowderhomepage(downloadurl)
+            # print(download_homepage_status)
+            homepage_status['homepage_status'] = download_homepage_status
+            try:
+                r = requests.post(report_url, headers={"Content-Type": "application/json", "API-KEY": report_apikey},
+                                  data=json.dumps(homepage_status))
+                r.raise_for_status()
+            except Exception as e:
+                __logger.exception(e)
+        except Exception as e:
+            __logger.exception(e)
+        sleep(sleep_timer_sec)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -108,17 +120,21 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(args.server)
 
-    while (True):
-        threads = list()
+    threads = list()
+    if args.server:
         ping_thread = threading.Thread(target=ping_thread_func, args=(args.server, args.ping_wait_sec, args.report_url,
-                                                                      args.report_apikey))
-        download_thread = threading.Thread(target=download_homepage_thread_func, args=(args.downloadurl,args.report_url,
-                                                                                       args.report_apikey,))
+                                                                      args.report_apikey, args.sleep_timer_sec))
         threads.append(ping_thread)
+    if args.downloadurl:
+        download_thread = threading.Thread(target=download_homepage_thread_func, args=(args.downloadurl, args.report_url,
+                                                                                       args.report_apikey,args.sleep_timer_sec, ))
         threads.append(download_thread)
+
+    for thread in threads:
+        thread.start()
+    while (True):
         for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
+            if not thread.is_alive():
+                thread.start()
 
         sleep(args.sleep_timer_sec)
