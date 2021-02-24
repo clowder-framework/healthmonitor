@@ -6,6 +6,7 @@ ENV PING_URL="" \
     REPORT_APIKEY="" \
     SLEEP_TIMER_SEC="" \
     HEALTHZ_URL="" \
+    REQUEST_TIMEOUT="" \
     PING_WAIT_SEC=""
     
 
@@ -23,4 +24,4 @@ RUN apt-get update &&\
     rm -rf /var/lib/apt/lists/*
 
 
-CMD python3 /healthmonitor.py --server $PING_URL --downloadurl $DOWNLOAD_WEBPAGE_URL --report_url $REPORT_URL --report_apikey $REPORT_APIKEY --sleep_timer_sec $SLEEP_TIMER_SEC --ping_wait_sec $PING_WAIT_SEC --healthz_url $HEALTHZ_URL
+CMD python3 /healthmonitor.py --server $PING_URL --downloadurl $DOWNLOAD_WEBPAGE_URL --report_url $REPORT_URL --request_timeout $REQUEST_TIMEOUT --report_apikey $REPORT_APIKEY --sleep_timer_sec $SLEEP_TIMER_SEC --ping_wait_sec $PING_WAIT_SEC --healthz_url $HEALTHZ_URL

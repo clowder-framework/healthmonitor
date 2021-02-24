@@ -10,14 +10,14 @@ Response time: We collect the statistics of the response time of the ping comman
 
 # Run from Python Script
 ```
-python ./healthmonitor.py --server https://clowderhost/clowder --downloadurl https://clowderhost/clowder --healthz_url https://clowderhost/clowder/healthz --report_url http://simpl-eventbus-api-host/service --report_apikey api_key --sleep_timer_sec 10 --ping_wait_sec 10
+python ./healthmonitor.py --server https://clowderhost/clowder --downloadurl https://clowderhost/clowder --healthz_url https://clowderhost/clowder/healthz --report_url http://simpl-eventbus-api-host/service --report_apikey api_key --sleep_timer_sec 10 --ping_wait_sec 10 --request_timeout 60
 ```
 
 # Docker Build and Run
 ```
 cd health-monitor
 docker build -t healthmonitor .
-docker run -it --rm -e "PING_URL=clowderhost" -e "HEALTHZ_URL=https://clowderhost/clowder/healthz" -e "DOWNLOAD_WEBPAGE_URL=https://clowderhost/clowder" -e "REPORT_URL=http://simpl-eventbus-api/service" -e "REPORT_APIKEY=api_key" -e "SLEEP_TIMER_SEC=10" -e "PING_WAIT_SEC=10" -v ${PWD}/total.txt:/total.txt healthmonitor
+docker run -it --rm -e "PING_URL=clowderhost" -e "HEALTHZ_URL=https://clowderhost/clowder/healthz" -e "DOWNLOAD_WEBPAGE_URL=https://clowderhost/clowder" -e "REPORT_URL=http://simpl-eventbus-api/service" -e "REPORT_APIKEY=api_key" -e "REQUEST_TIMEOUT=60" -e "SLEEP_TIMER_SEC=10" -e "PING_WAIT_SEC=10" -v ${PWD}/total.txt:/total.txt healthmonitor
 ```
 
 
