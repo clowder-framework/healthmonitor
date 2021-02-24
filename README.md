@@ -9,8 +9,9 @@ Response time: We collect the statistics of the response time of the ping comman
 
 
 # Run from Python Script
-
+```
 python ./healthmonitor.py --server https://clowderhost/clowder --downloadurl https://clowderhost/clowder --healthz_url https://clowderhost/clowder/healthz --report_url http://simpl-eventbus-api-host/service --report_apikey api_key --sleep_timer_sec 10 --ping_wait_sec 10
+```
 
 # Docker Build and Run
 ```
