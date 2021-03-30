@@ -11,7 +11,6 @@ ENV PING_URL="" \
     
 
 
-COPY *.py requirements.txt /
 
 RUN apt-get update &&\
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
