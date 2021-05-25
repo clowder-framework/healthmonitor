@@ -1,28 +1,22 @@
-FROM ubuntu:20.04
+FROM python:3.7-alpine
 
-ENV PING_URL="" \
-    DOWNLOAD_WEBPAGE_URL="" \
+#    CLOWDER_KEY="4e1acfe7-bd4d-4a5c-8035-a3e544c46154" \
+#    CLOWDER_FILE_ID="607e6e325e0e57a46506f0f0" \
+ENV CLOWDER_URL="https://clowder.ncsa.illinois.edu/clowder/" \
+    CLOWDER_SLEEP_SEC="60" \
+    CLOWDER_KEY="" \
+    CLOWDER_FILE_ID="" \
+    CLOWDER_FILE_SLEEP_SEC="3600" \
+    CLOWDER_TIMEOUT_SEC="30" \
+    PING_HOST="clowder.ncsa.illinois.edu" \
+    PING_COUNT="5" \
+    PING_SLEEP_SEC="60" \
     REPORT_URL="" \
-    REPORT_APIKEY="" \
-    SLEEP_TIMER_SEC="" \
-    HEALTHZ_URL="" \
-    REQUEST_TIMEOUT="" \
-    PING_WAIT_SEC=""
-    
+    REPORT_APIKEY="api-key"
 
+WORKDIR /src
+COPY requirements.txt ./
+RUN pip3 install -r ./requirements.txt
+COPY *.py ./
 
-
-RUN apt-get update &&\
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    iputils-ping \
-    python3 \
-    python-is-python3 \
-    python3-pip \
-    python-is-python3 && \
-    rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt /
-RUN pip3 install -r /requirements.txt
-COPY *.py.txt /
-
-CMD python3 /healthmonitor.py --server $PING_URL --downloadurl $DOWNLOAD_WEBPAGE_URL --report_url $REPORT_URL --request_timeout $REQUEST_TIMEOUT --report_apikey $REPORT_APIKEY --sleep_timer_sec $SLEEP_TIMER_SEC --ping_wait_sec $PING_WAIT_SEC --healthz_url $HEALTHZ_URL
+CMD python3 ./healthmonitor.py 
