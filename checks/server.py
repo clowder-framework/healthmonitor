@@ -10,59 +10,61 @@ def ping(label, config):
     host = config['host']
     max_count = 5 if 'count' not in config else config['count']
     sleep = 60 if 'sleep' not in config else config["sleep"]
-    count = 0
-
-    results = []
-    failure_count = 0
 
     logging.debug("Running " + str(max_count) + " pings to " + host)
+    while True:
+        count = 0
+        failure_count = 0
+        results = []
 
-    while count < max_count:
-        # sleep between ping attempts
+        # sleep between pings
         time.sleep(sleep)
 
-        data = {}
+        # Run multiple ping attempts each iteration
+        while count < max_count:
 
-        logging.debug(f"Attempt #" + str(count + 1) + " - pinging " + str(host) + "...")
+            data = {}
 
+            logging.debug(f"Attempt #" + str(count + 1) + " - pinging " + str(host) + "...")
 
-        try:
-            # ping server
-            output = subprocess.getstatusoutput(f"ping -c {max_count} -W 1 {host}")
-            data["status"] = output[0]
-            lines = output[1].split("\n")
-            idx = -1
+            try:
+                # ping server
+                output = subprocess.getstatusoutput(f"ping -c {max_count} -W 1 {host}")
+                data["status"] = output[0]
+                lines = output[1].split("\n")
+                idx = -1
 
-            # parse round-trip information
-            if "round-trip" in lines[idx]:
-                timing = lines[-1].split()[3].split('/')
-                timing_unit = lines[idx].split()[-1]
-                data['packets'] = config['count']
-                data['unit'] = timing_unit
-                data['min'] = float(timing[0])
-                data['avg'] = float(timing[1])
-                data['max'] = float(timing[2])
-                idx -= 1
+                # parse round-trip information
+                if "round-trip" in lines[idx]:
+                    timing = lines[-1].split()[3].split('/')
+                    timing_unit = lines[idx].split()[-1]
+                    data['packets'] = config['count']
+                    data['unit'] = timing_unit
+                    data['min'] = float(timing[0])
+                    data['avg'] = float(timing[1])
+                    data['max'] = float(timing[2])
+                    idx -= 1
 
-            # parse loss information
-            if "packet loss" in lines[idx]:
-                data["loss"] = float(lines[idx].split()[6][:-1])
-                idx -= 1
+                # parse loss information
+                if "packet loss" in lines[idx]:
+                    data["loss"] = float(lines[idx].split()[6][:-1])
+                    idx -= 1
 
-            logging.debug(host + ": " + "ping success! (" + str(count) + " / " + str(max_count) + ")")
+                logging.debug(host + ": " + "ping success! (" + str(count + 1) + " / " + str(max_count) + ")")
 
-            data["state"] = 'success'
-        except Exception as e:
-            logging.debug(host + ": " + "ping failed! (" + str(count) + " / " + str(max_count) + ")")
+                data["state"] = 'success'
+            except Exception as e:
+                logging.debug(host + ": " + "ping failed! (" + str(count + 1) + " / " + str(max_count) + ")")
 
-            data["state"] = 'failure'
-            data["loss"] = 100
-            failure_count += 1
+                data["state"] = 'failure'
+                data["loss"] = 100
+                failure_count += 1
 
-        results.append(data)
+            count += 1
+            results.append(data)
 
-    status = 'failure' if failure_count > 0 else 'success'
-    return {'status': status, 'results': results, 'label': label, 'host': host}
+        status = 'failure' if failure_count > 0 else 'success'
+        return {'status': status, 'results': results, 'label': label, 'host': host}
 
 
 def hostport(label, config):
@@ -73,15 +75,14 @@ def hostport(label, config):
 
     connection = None
     try:
-        logging.debug(f"Attempting to connect (" + label + "): " + str(host) + ":" + str(port) + "...")
+        logging.debug(f"Attempting to connect ({label}): {str(host)}:{str(port)}...")
         connection = socket.create_connection((host, port), timeout)
         result['status'] = 'success'
-        logging.debug(f"Connection success (" + label + "): " + str(host) + ":" + str(port))
+        logging.debug(f"Connection success ({label}): {str(host)}:{str(port)}")
     except:
-        logging.error(f"Could not connect to " + label + "): " + str(host) + ":" + str(port))
-    finally:
+        logging.error(f"Could not connect to ({label}): {str(host)}:{str(port)}")
         if connection is not None:
-            connection.shutdown()
+            #connection.shutdown()
             connection.close()
 
     return result

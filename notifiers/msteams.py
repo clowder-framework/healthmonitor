@@ -1,13 +1,13 @@
 import requests
 import json
 
-from healthmonitor.notifiers.base_notifier import HealthNotifier
+import healthmonitor
 
 msteamurl = ""
 msteamnotify = ""
 
 
-class MsTeamsNotifier(HealthNotifier):
+class MsTeamsNotifier(healthmonitor.HealthNotifier):
     def __init__(self, config):
 
     def notify(self, result):
