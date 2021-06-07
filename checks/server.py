@@ -79,10 +79,9 @@ def hostport(label, config):
         logging.debug(f"Connection success (" + label + "): " + str(host) + ":" + str(port))
     except:
         logging.error(f"Could not connect to " + label + "): " + str(host) + ":" + str(port))
-        return result
     finally:
         if connection is not None:
-            connection.shutdown
+            connection.shutdown()
             connection.close()
 
     return result
