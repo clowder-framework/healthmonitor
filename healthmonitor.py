@@ -2,16 +2,210 @@ import argparse
 import json
 import logging
 import os
-import subprocess
 import sys
-import threading
 import time
 
-import requests
+from queue import Queue
+from threading import Thread, Timer
+
+from checks import server
+from notifiers import console, slack
+
+import ruamel.yaml
+
+
+# helper to report data
+def report_result(report_url, report_key, measurement, values, tags=None):
+    if not values:
+        return
+    if tags:
+        data = json.dumps({"measurement": measurement, "tags": tags, "values": values})
+    else:
+        data = json.dumps({"measurement": measurement, "values": values})
+    if not report_url or not report_key:
+        logging.info(data)
+    else:
+        try:
+            logging.debug("Reporting for duty")
+            # r = requests.post(report_url,
+            #                  headers={"Content-Type": "application/json", "API-KEY": report_key},
+            #                  data=data)
+            # r.raise_for_status()
+        except Exception as e:
+            logging.exception("Error uploading result, data is lost")
+
+
+# e.g. Example: config.yml
+def parse_config(filename):
+    with open(filename, 'r') as f:
+        config = ruamel.yaml.load(f, ruamel.yaml.RoundTripLoader)
+
+        # Set up notifiers - what should we do with results?
+        notifiers_list = setup_notifiers(config['notifiers'])
+
+        # Set up checks - how should we gather results?
+        monitors = setup_checks(config['checks'], notifiers_list)
+
+        sleep = 30 if 'sleep' not in config else config['sleep']
+
+        return monitors, sleep
+
+
+# Each check creates its own HealthMonitor
+def setup_checks(checks_conf, notifiers_list):
+    monitors = []
+
+    if 'ping' in checks_conf:
+        for label in checks_conf['ping']:
+            ping_target = checks_conf['ping'][label]
+            ping_monitor = HealthMonitor('ping-' + label, server.ping, ping_target, notifiers_list)
+            ping_monitor.start()
+            monitors.append(ping_monitor)
+
+    if 'hostport' in checks_conf:
+        for label in checks_conf['hostport']:
+            hostport_target = checks_conf['hostport'][label]
+            hostport_monitor = HealthMonitor('hostport-' + label, server.hostport, hostport_target, notifiers_list)
+            hostport_monitor.start()
+            monitors.append(hostport_monitor)
+
+    if 'download' in checks_conf:
+        for label in checks_conf['download']:
+            download_target = checks_conf['download'][label]
+            download_monitor = HealthMonitor('download-' + label, server.download_data, download_target, notifiers_list)
+            download_monitor.start()
+            monitors.append(download_monitor)
+
+    return monitors
+
+
+def setup_notifiers(notifiers_conf):
+    health_notifiers = []
+
+    # Example of simple/generic HealthNotifier
+    if 'console' in notifiers_conf:
+        console_config = notifiers_conf['console']
+        console_notifier = HealthNotifier('console', console.report, console_config)
+        health_notifiers.append(console_notifier)
+
+    # Example of complex/custom HealthNotifier subclass
+    if 'slack' in notifiers_conf:
+        slack_config = notifiers_conf['slack']
+        slack_notifier = slack.SlackNotifier(slack_config)
+        health_notifiers.append(slack_notifier)
+
+    # TODO: Fill these out
+    if 'msteams' in notifiers_conf:
+        msteams_report = notifiers_conf['msteams']['report']
+        msteams_threshold = notifiers_conf['msteams']['threshold']
+        msteams_webhook = notifiers_conf['msteams']['webhook']
+    if 'rabbitmq' in notifiers_conf:
+        rabbitmq_report = notifiers_conf['rabbitmq']['report']
+        rabbitmq_threshold = notifiers_conf['rabbitmq']['threshold']
+        rabbitmq_uri = notifiers_conf['rabbitmq']['uri']
+        rabbitmq_exchange = notifiers_conf['rabbitmq']['exchange']
+    if 'mongo' in notifiers_conf:
+        mongo_report = notifiers_conf['mongo']['report']
+        mongo_threshold = notifiers_conf['mongo']['threshold']
+        mongo_host = notifiers_conf['mongo']['host']
+        mongo_database = notifiers_conf['mongo']['database']
+        mongo_collection = notifiers_conf['mongo']['collection']
+    if 'influxdb' in notifiers_conf:
+        influxdb_report = notifiers_conf['influxdb']['report']
+        influxdb_threshold = notifiers_conf['influxdb']['threshold']
+        influxdb_hostname = notifiers_conf['influxdb']['hostname']
+        influxdb_username = notifiers_conf['influxdb']['username']
+        influxdb_password = notifiers_conf['influxdb']['password']
+        influxdb_database = notifiers_conf['influxdb']['database']
+        influxdb_measurement = notifiers_conf['influxdb']['measurement']
+    if 'email' in notifiers_conf:
+        email_server = notifiers_conf['mail']['server']
+
+    return health_notifiers
+
+
+class HealthNotifier(object):
+    def __init__(self, label, notify_handler, notifier_config):
+        self.label = label
+        self.handler = notify_handler
+        self.config = notifier_config
+        self.failures = 0
+        self.threshold = self.config['threshold'] or 5
+        self.report = self.config['report'] or 'failure'  # either 'always' or 'failure' (default)
+
+    def notify(self, result):
+        should_notify = True if self.report == 'always' else False
+        if result['status'] == self.report:
+            self.handler({'result': result})
+
+
+class HealthMonitor(object):
+    def __init__(self, label, handler, config, configured_notifiers, sleep=3):
+        self.label = label
+        self.check_handler = handler
+        self.check_config = config
+        self.notifiers = configured_notifiers
+
+        self.successesSinceLastFailure = 0
+        self.failuresSinceLastSuccess = 0
+
+        self.result_queue = Queue()
+
+        self.timer = None
+        self.sleep = sleep
+
+    def callback(self):
+        logging.debug("Running check " + self.label)
+
+        # Run our handler with the given config
+        result = self.check_handler(self.label, self.check_config)
+
+        # Count number of success / failures since last status change
+        if result['status'] == 'failure':
+            self.successesSinceLastFailure = 0
+            self.failuresSinceLastSuccess += 1
+        if result['status'] == 'success':
+            self.failuresSinceLastSuccess = 0
+            self.successesSinceLastFailure += 1
+
+        # Report results to interested notifiers
+        for notifier in self.notifiers:
+            logging.debug(self.label + " checking notifier: " + notifier.label)
+
+            # 'always' or 'failure' (default)
+            report = notifier.report
+
+            # Report successes only if requested and over the threshold
+            if report == 'always' and self.successesSinceLastFailure > notifier.threshold:
+                notifier.notify(result)
+            # Report failures only if threshold is surpassed
+            elif self.failuresSinceLastSuccess > notifier.threshold:
+                notifier.notify(result)
+
+    def start(self):
+        if self.timer is not None or self.is_alive():
+            logging.warning("HealthMonitor already running.. skipping.")
+            return
+
+        logging.info("Starting HealthMonitor: " + self.label)
+
+        # Create a Time and start it
+        self.timer = Timer(self.sleep, self.callback)
+        self.timer.start()
+
+        logging.debug("Started HealthMonitor: " + self.label)
+
+    def is_alive(self):
+        return False if self.timer is None else self.timer.is_alive()
+
+    def cancel(self):
+        logging.info("Stopping HealthMonitor: " + self.label)
+        self.timer.cancel()
+        logging.debug("Stopped HealthMonitor: " + self.label)
 
 
 # logic of the code:
-# ech of the checkers runs in their own thread and will send the results to the response app
+# each of the checks runs in their own thread and will send the results to the response app
 # - ping_server:
 #   - checks to see if the server is pingable
 #   - reports {#pings, loss, and round trip time}
@@ -24,229 +218,43 @@ import requests
 # - clowder_download:
 #   - checks to see if a file can be downloaded
 #   - reports {status: 1/0, size: X, speed: Y (Mbps)}
-
-
-# helper to report data
-def report_result(report_url, report_key, measurement, values, tags=None):
-    if not values:
-        return
-    if tags:
-        data = json.dumps({"measurement": measurement, "tags": tags, "values": values})
-    else:
-        data = json.dumps({"measurement": measurement, "values": values})
-    if not report_url or not report_key:
-        print(data)
-    else:
-        try:
-            r = requests.post(report_url,
-                              headers={"Content-Type": "application/json", "API-KEY": report_key},
-                              data=data)
-            r.raise_for_status()
-        except Exception as e:
-            logging.exception("Error uploading result, data is lost")
-
-
-# download (and discard the data), return speed of download
-def download_data(url, headers=None, timeout=30):
-    start = time.time_ns()
-    bytes = 0
-    print(url)
-    r = requests.get(url, headers=headers, stream=True, timeout=timeout)
-    r.raise_for_status()
-    for chunk in r.iter_content(chunk_size=1_000_000):
-        bytes += len(chunk)
-    diff = (time.time_ns() - start) / 1.0e9
-    return {
-        "bytes": bytes,
-        "time": diff,
-        "speed": (8 * bytes / 1_000_000) / diff
-    }
-
-
-# ping a server, returns data number of packets send, and round trip times
-def ping_server(**kwargs):
-    tags = {"server": kwargs['ping_host']}
-    while True:
-        data = {}
-
-        try:
-            # ping server
-            output = subprocess.getstatusoutput(f"ping -c {kwargs['ping_count']} -W 1 {kwargs['ping_host']}")
-            data["status"] = output[0]
-            lines = output[1].split("\n")
-            idx = -1
-
-            # parse round-trip information
-            if "round-trip" in lines[idx]:
-                timing = lines[-1].split()[3].split('/')
-                timing_unit = lines[idx].split()[-1]
-                data['packets'] = kwargs['ping_count']
-                data['unit'] = timing_unit
-                data['min'] = float(timing[0])
-                data['avg'] = float(timing[1])
-                data['max'] = float(timing[2])
-                idx -= 1
-
-            # parse loss information
-            if "packet loss" in lines[idx]:
-                data["loss"] =  float(lines[idx].split()[6][:-1])
-                idx -= 1
-
-        except Exception as e:
-            logging.exception(f"Could not ping server.")
-            data["status"] = 999
-            data["loss"] = 100
-
-        # send response to server
-        report_result(kwargs["report_url"], kwargs["report_apikey"], "ping", data, tags)
-
-        # sleep
-        time.sleep(kwargs["ping_sleep_sec"])
-
-
-# check to see if clowder claims to be healthy
-def clowder_healthy(**kwargs):
-    while True:
-        data = {}
-
-        data['healthy'] = 0
-        try:
-            # check clowder healtz
-            r = requests.get(f"{kwargs['clowder_url']}healthz", timeout=kwargs['clowder_timeout_sec'])
-            r.raise_for_status()
-
-            if r.text == "healthy":
-                data['healthy'] = 1
-        except:
-            logging.debug("could not check health")
-            pass
-
-        # send response to server
-        report_result(kwargs["report_url"], kwargs["report_apikey"], "healthz", data)
-
-        # sleep
-        time.sleep(kwargs["ping_sleep_sec"])
-
-
-# download clowder homepage
-def clowder_homepage(**kwargs):
-    # download homepage and report, using streaming protocol
-    while True:
-        try:
-            data = download_data(kwargs['clowder_url'], None, kwargs["clowder_timeout_sec"])
-            # send response to server
-            report_result(kwargs["report_url"], kwargs["report_apikey"], "homepage", data)
-        except Exception as e:
-            logging.exception(f"Could not download file {e}")
-            pass
-        # sleep
-        time.sleep(kwargs["clowder_sleep_sec"])
-
-
-# download a file from clowder
-def clowder_download(**kwargs):
-    headers = {}
-    tags = {}
-    if kwargs['clowder_key']:
-        headers['X-API-Key'] = kwargs['clowder_key']
-    if args.clowder_file_id:
-        url = f"{args.clowder_url}api/files/{args.clowder_file_id}/blob"
-        tags["asset"] = args.clowder_file_id
-    else:
-        url = f"{args.clowder_url}assets/javascripts/previewers/pdf/pdf.js"
-        tags["asset"] = "pdf.js"
-
-    # download file and report, using streaming protocol
-    while True:
-        try:
-            data = download_data(url, headers, kwargs["clowder_timeout_sec"])
-            # send response to server
-            report_result(kwargs["report_url"], kwargs["report_apikey"], "download", data, tags)
-        except Exception as e:
-            logging.exception(f"Could not download file {e}")
-            pass
-        # sleep
-        time.sleep(kwargs["clowder_file_sleep_sec"])
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.Formatter.converter = time.gmtime
-    logging.basicConfig(level=logging.INFO,
+    logging.basicConfig(level=logging.DEBUG,
                         datefmt='%Y-%m-%dT%H:%M:%S',
                         format='%(asctime)-15s.%(msecs)03dZ %(levelname)-7s [%(threadName)-10s] : %(name)s - %(message)s')
     logging.getLogger("requests.packages.urllib3").setLevel(logging.WARNING)
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--clowder_url",
-                        default=os.environ.get("CLOWDER_URL", "http://localhost:9000/"),
-                        help="home page of clowder")
-    parser.add_argument("--clowder_sleep_sec",
-                        type=int,
-                        default=int(os.environ.get("CLOWDER_SLEEP_SEC", 60)),
-                        help="how long to wait between consecutive checks of clowder")
-    parser.add_argument("--clowder_key",
-                        default=os.environ.get("CLOWDER_KEY", None),
-                        help="key to download file if needed")
-    parser.add_argument("--clowder_file_id",
-                        default=os.environ.get("CLOWDER_FILE_ID", None),
-                        help="file to download from clowder, if not specified will download other large object")
-    parser.add_argument("--clowder_file_sleep_sec",
-                        type=int,
-                        default=int(os.environ.get("CLOWDER_FILE_SLEEP_SEC", "3600")),
-                        help="how long to wait between consecutive downloads in seconds")
-    parser.add_argument("--clowder_timeout_sec",
-                        type=int,
-                        default=int(os.environ.get("CLOWDER_TIMEOUT_SEC", "30")),
-                        help="request timeout")
-
-    parser.add_argument("--ping_host",
-                        default=os.environ.get("PING_HOST", "localhost"),
-                        help="Clowder server to ping")
-    parser.add_argument("--ping_count",
-                        type=int,
-                        default=int(os.environ.get("PING_COUNT", "30")),
-                        help="ping command number of tries")
-    parser.add_argument("--ping_sleep_sec",
-                        type=int,
-                        default=int(os.environ.get("PING_SLEEP_SEC", "69")),
-                        help="how long to wait between consecutive ping commands")
-
-    parser.add_argument("--report_url", default=os.environ.get("REPORT_URL", "http://localhost:5000"),
-                        help="website url to report the status")
-    parser.add_argument("--report_apikey", default=os.environ.get("REPORT_APIKEY", "api-key"),
-                        help="apikey t0 authorize the post data")
+    parser.add_argument("--config-file",
+                        default=os.environ.get("HEALTHMONITOR_CONFIG_FILE", "config.yml"),
+                        help="file path of the healthmonitor config")
 
     args = parser.parse_args()
 
-    threads = list()
+    health_monitors = []
+    try:
+        (health_monitors, sleep_time) = parse_config(args.config_file)
 
-    # ping server
-    if args.ping_host:
-        thread = threading.Thread(target=ping_server, kwargs=vars(args))
-        thread.start()
-        threads.append(thread)
+        logging.info("HealthMonitors are now running!")
 
-    # if clowder url given
-    if args.clowder_url:
-        # check if clowder is healthy
-        thread = threading.Thread(target=clowder_healthy, kwargs=vars(args))
-        thread.start()
-        threads.append(thread)
+        # keep running, and die if any thread stops
+        while True:
+            logging.info("HealthMonitors are still running...")
 
-        # download clowder homepage
-        thread = threading.Thread(target=clowder_homepage, kwargs=vars(args))
-        thread.start()
-        threads.append(thread)
+            for monitor in health_monitors:
+                logging.info("Checking if HealthMonitor is still running: " + monitor.label)
 
-        # try download file from clowder
-        thread = threading.Thread(target=clowder_download, kwargs=vars(args))
-        thread.start()
-        threads.append(thread)
+                if not monitor.is_alive():
+                    logging.warn("HealthMonitor " + monitor.label + " thread has died: ... Restarting it.")
 
-    # keep running, and die if any thread stops
-    while True:
-        for thread in threads:
-            if not thread.is_alive():
-                sys.exit(1)
-        time.sleep(1)
+                    # Restart the monitor?
+                    monitor.start()
+                    #sys.exit(1)
+
+            time.sleep(sleep_time)
+    finally:
+        # stop all threads first
+        for m in health_monitors:
+            m.cancel()
