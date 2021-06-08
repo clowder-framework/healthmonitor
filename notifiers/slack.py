@@ -28,7 +28,7 @@ class SlackNotifier(healthmonitor.HealthNotifier):
 def build_message(result, notify_on='both'):
     print(result)
     message = ""
-    message += "Label           : %s\n" % result['url'] if 'url' in result else result['host']
+    message += "Label           : %s\n" % result['label'] if 'label' in result else result['label']
     message += "Status          : %s\n" % result['status']
     #message += "Server          : %s\n" % servertype
     #message += "Total Tests     : %d\n" % test_groups['total']

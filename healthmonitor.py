@@ -129,13 +129,13 @@ class HealthNotifier(object):
     def __init__(self, label, notifier_config):
         self.label = label
         self.config = notifier_config
+        self.report = 'failure' if 'report' not in self.config else self.config['report']
         self.threshold = 0 if 'threshold' not in self.config else self.config['threshold']
         self.failures = 0
-        self.report = 'failure' if 'report' not in self.config else self.config['report']
-
+        self.logger = logging.getLogger(label + "-notifier")
 
     def notify(self, result):
-        logging.info("Reporting for duty! here is your message: " + str(result))
+        self.logger.info("Reporting for duty! here is your message: " + str(result))
 
 
 class HealthMonitor(object):
@@ -148,20 +148,21 @@ class HealthMonitor(object):
         self.successesSinceLastFailure = 0
         self.failuresSinceLastSuccess = 0
 
-        self.result_queue = Queue()
-
-        self.sleep = sleep
+        self.sleep = 60 if 'sleep' not in config else config['sleep']
         self.check_thread = None
+
+        self.logger = logging.getLogger(label + "-monitor")
+
 
     def callback(self):
         while True:
-            logging.debug("Running check " + self.label)
+            self.logger.debug("Running check " + self.label)
             result = None
             try:
                 # Run our handler with the given config
                 result = self.check_handler(self.label, self.check_config)
             except:
-                logging.exception(f"Error running check_handler: {self.label}")
+                self.logger.exception(f"Error running check_handler: {self.label}")
 
             if result:
                 # Count number of success / failures since last status change
@@ -174,7 +175,7 @@ class HealthMonitor(object):
 
                 # Report results to interested notifiers
                 for notifier in self.notifiers:
-                    logging.debug(self.label + " checking notifier: " + notifier.label)
+                    self.logger.debug(self.label + " checking notifier: " + notifier.label)
 
                     # 'always' or 'failure' (default)
                     report = notifier.report
@@ -182,39 +183,39 @@ class HealthMonitor(object):
                     # Report successes only if requested and over the threshold
                     try:
                         if report == 'always' and self.successesSinceLastFailure > notifier.threshold:
-                            logging.debug(self.label + " reporting success: " + notifier.label)
+                            self.logger.debug(self.label + " reporting success: " + notifier.label)
                             notifier.notify(result)
                         # Report failures only if threshold is surpassed
                         elif self.failuresSinceLastSuccess > notifier.threshold:
-                            logging.debug(self.label + " reporting failure: " + notifier.label)
+                            self.logger.debug(self.label + " reporting failure: " + notifier.label)
                             notifier.notify(result)
                         else:
-                            logging.debug(f"Skipping report: {self.label}-{notifier.label} - not over threshold (failures={self.failuresSinceLastSuccess} / successes={self.successesSinceLastFailure} / threshold={notifier.threshold})")
+                            self.logger.debug(f"Skipping report: {self.label}-{notifier.label} - not over threshold (failures={self.failuresSinceLastSuccess} / successes={self.successesSinceLastFailure} / threshold={notifier.threshold})")
                     except:
-                        logging.exception(f"Error calling notifier: {self.label}-{notifier.label}")
+                        self.logger.exception(f"Error calling notifier: {self.label}-{notifier.label}")
 
             time.sleep(self.sleep)
 
     def start(self):
         # noop if Timer is already running
         if self.check_thread is not None:
-            logging.warning("HealthMonitor already running.. skipping.")
+            self.logger.warning("HealthMonitor already running.. skipping.")
             return
 
         # Create a Timer and start it
-        logging.info("Starting HealthMonitor: " + self.label)
+        self.logger.info("Starting HealthMonitor: " + self.label)
         self.check_thread = Thread(name=self.label, target=self.callback)  #Timer(self.sleep, self.callback)
         self.check_thread.start()
-        logging.debug("Started HealthMonitor: " + self.label)
+        self.logger.debug("Started HealthMonitor: " + self.label)
 
     def is_alive(self):
         return False if self.check_thread is None else self.check_thread.is_alive()
 
     def cancel(self):
-        logging.info("Stopping HealthMonitor: " + self.label)
+        self.logger.info("Stopping HealthMonitor: " + self.label)
         self.check_thread.join()
         self.check_thread = None
-        logging.debug("Stopped HealthMonitor: " + self.label)
+        self.logger.debug("Stopped HealthMonitor: " + self.label)
 
 
 # logic of the code:
@@ -233,10 +234,11 @@ class HealthMonitor(object):
 #   - reports {status: 1/0, size: X, speed: Y (Mbps)}
 if __name__ == "__main__":
     logging.Formatter.converter = time.gmtime
-    logging.basicConfig(level=logging.DEBUG,
+    logging.basicConfig(level=logging.INFO,
                         datefmt='%Y-%m-%dT%H:%M:%S',
                         format='%(asctime)-15s.%(msecs)03dZ %(levelname)-7s [%(threadName)-10s] : %(name)s - %(message)s')
     logging.getLogger("requests.packages.urllib3").setLevel(logging.WARNING)
+    base_logger = logging.getLogger("HealthMonitor")
 
     parser = argparse.ArgumentParser()
 
@@ -250,17 +252,17 @@ if __name__ == "__main__":
     try:
         (health_monitors, sleep_time) = parse_config(args.config_file)
 
-        logging.info("HealthMonitors are now running!")
+        base_logger.info("HealthMonitors are now running!")
 
         # keep running, and die if any thread stops
         while True:
-            logging.debug("HealthMonitors are still running...")
+            base_logger.debug("HealthMonitors are still running...")
 
             for monitor in health_monitors:
-                logging.debug("Checking if HealthMonitor is still running: " + monitor.label)
+                monitor.logger.debug("Checking if HealthMonitor is still running: " + monitor.label)
 
                 if not monitor.is_alive():
-                    logging.warning("HealthMonitor " + monitor.label + " thread has died: ... Restarting it.")
+                    monitor.logger.warning("HealthMonitor " + monitor.label + " thread has died: ... Restarting it.")
 
                     # Restart the monitor?
                     monitor.cancel()

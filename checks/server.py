@@ -4,6 +4,7 @@ import socket
 import subprocess
 import time
 
+logger = logging.getLogger(__name__)
 
 # ping a server, returns data number of packets send, and round trip times
 def ping(label, config):
@@ -11,7 +12,7 @@ def ping(label, config):
     max_count = 5 if 'count' not in config else config['count']
     sleep = 60 if 'sleep' not in config else config["sleep"]
 
-    logging.debug("Running " + str(max_count) + " pings to " + host)
+    logger.debug("Running " + str(max_count) + " pings to " + host)
     while True:
         count = 0
         failure_count = 0
@@ -25,7 +26,7 @@ def ping(label, config):
 
             data = {}
 
-            logging.debug(f"Attempt #" + str(count + 1) + " - pinging " + str(host) + "...")
+            logger.debug(f"Attempt #" + str(count + 1) + " - pinging " + str(host) + "...")
 
             try:
                 # ping server
@@ -50,11 +51,11 @@ def ping(label, config):
                     data["loss"] = float(lines[idx].split()[6][:-1])
                     idx -= 1
 
-                logging.debug(host + ": " + "ping success! (" + str(count + 1) + " / " + str(max_count) + ")")
+                logger.debug(host + ": " + "ping success! (" + str(count + 1) + " / " + str(max_count) + ")")
 
                 data["state"] = 'success'
             except Exception as e:
-                logging.debug(host + ": " + "ping failed! (" + str(count + 1) + " / " + str(max_count) + ")")
+                logger.debug(host + ": " + "ping failed! (" + str(count + 1) + " / " + str(max_count) + ")")
 
                 data["state"] = 'failure'
                 data["loss"] = 100
@@ -75,12 +76,12 @@ def hostport(label, config):
 
     connection = None
     try:
-        logging.debug(f"Attempting to connect ({label}): {str(host)}:{str(port)}...")
+        logger.debug(f"Attempting to connect ({label}): {str(host)}:{str(port)}...")
         connection = socket.create_connection((host, port), timeout)
         result['status'] = 'success'
-        logging.debug(f"Connection success ({label}): {str(host)}:{str(port)}")
+        logger.debug(f"Connection success ({label}): {str(host)}:{str(port)}")
     except:
-        logging.error(f"Could not connect to ({label}): {str(host)}:{str(port)}")
+        logger.error(f"Could not connect to ({label}): {str(host)}:{str(port)}")
         if connection is not None:
             #connection.shutdown()
             connection.close()
@@ -96,10 +97,10 @@ def download_data(label, config): # url, headers=None, timeout=30):
     timeout = 30 if 'timeout' not in config else config['timeout']
     headers = [] if 'headers' not in config else config['headers']
     try:
-        logging.debug(f"Attempting to download from " + str(url) + "...")
+        logger.debug(f"Attempting to download from " + str(url) + "...")
         r = requests.get(url, headers=headers, stream=True, timeout=timeout)
         r.raise_for_status()
-        logging.debug(f"Download success: " + str(url) + "...")
+        logger.debug(f"Download success: " + str(url) + "...")
     except:
         errtime = (time.time_ns() - start) / 1.0e9
         return {'status': 'failure', 'bytes': 0, 'time': errtime, 'speed': 0}

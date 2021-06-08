@@ -1,6 +1,6 @@
 notifiers:
   console:
-    report: always
+    report: failure
     threshold: 0
   slack:
     report: failure
@@ -50,26 +50,28 @@ checks:
       # required
       host: localhost
       port: 8000
+      sleep: 60
     mongo:
       # required
       host: localhost
       port: 27017
+      sleep: 60
     rabbitmq:
       # required
       host: localhost
       port: 5672
       # optional
-      sleep: 10
+      sleep: 60
       timeout: 5
     clowder:
       # required
       host: localhost
       port: 9000
       # optional
-      sleep: 10
+      sleep: 60
       timeout: 5
   download:
-    clowder-local:
+    clowder:
       url: "http://localhost:9000"
       # optional
       sleep: 900
