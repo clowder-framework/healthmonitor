@@ -130,7 +130,9 @@ class HealthNotifier(object):
         self.label = label
         self.config = notifier_config
         self.report = 'failure' if 'report' not in self.config else self.config['report']
-        self.threshold = 0 if 'threshold' not in self.config else self.config['threshold']
+        self.threshold = 1 if 'threshold' not in self.config else self.config['threshold']
+        if self.threshold < 1:
+            self.threshold = 1
         self.failures = 0
         self.logger = logging.getLogger(label + "-notifier")
 
@@ -145,7 +147,7 @@ class HealthMonitor(object):
         self.check_config = config
         self.notifiers = configured_notifiers
 
-        self.successesSinceLastFailure = 0
+        self.successesSinceLastFailure = 9999
         self.failuresSinceLastSuccess = 0
 
         self.sleep = 60 if 'sleep' not in config else config['sleep']
@@ -182,11 +184,11 @@ class HealthMonitor(object):
 
                     # Report successes only if requested and over the threshold
                     try:
-                        if report == 'always' and self.successesSinceLastFailure > notifier.threshold:
+                        if report == 'always' and self.successesSinceLastFailure == notifier.threshold:
                             self.logger.debug(self.label + " reporting success: " + notifier.label)
                             notifier.notify(result)
                         # Report failures only if threshold is surpassed
-                        elif self.failuresSinceLastSuccess > notifier.threshold:
+                        elif self.failuresSinceLastSuccess == notifier.threshold:
                             self.logger.debug(self.label + " reporting failure: " + notifier.label)
                             notifier.notify(result)
                         else:
