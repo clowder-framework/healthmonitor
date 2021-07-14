@@ -1,0 +1,86 @@
+notifiers:
+  console:
+    report: failure
+    threshold: 0
+  slack:
+    report: failure
+    threshold: 600
+    # required
+    webhook: https://hooks.slack.com/services/some/secret/code
+    # optional?
+    channel: alerts
+  msteams:
+    report: failure
+    threshold: 600
+    # required
+    webhook: https://XYZ.webhook.office.com/webhookb2/id/IncomingWebhook/more/secret
+  influxdb:
+    report: always
+    threshold: 0
+    # required
+    hostname: localhost
+    username: admin
+    password: admin
+    database: clowder
+    measurement: health
+    # optional
+    port: 8086
+  rabbitmq:
+    report: always
+    threshold: 0
+    # required
+    uri: "http://localhost:5672/%2F"
+    exchange: "eventsink"
+checks:
+  ping:
+    localhost:
+      host: 127.0.0.1
+      # optional
+      count: 5
+      timeout: 30
+      sleep: 60
+    google:
+      host: google.com
+      # optional
+      count: 3
+      timeout: 30
+      sleep: 60
+  hostport:
+    minio:
+      # required
+      host: localhost
+      port: 8000
+      sleep: 60
+    mongo:
+      # required
+      host: localhost
+      port: 27017
+      sleep: 60
+    rabbitmq:
+      # required
+      host: localhost
+      port: 5672
+      # optional
+      sleep: 60
+      timeout: 5
+    clowder:
+      # required
+      host: localhost
+      port: 9000
+      # optional
+      sleep: 60
+      timeout: 5
+  download:
+    clowder:
+      url: "http://localhost:9000"
+      # optional
+      sleep: 900
+      threshold: 2
+      timeout: 5
+
+      # TODO: support headers / verification of downloaded data
+      size: 7777
+      contains: string to match
+      header:
+        key: value
+        X-Api-Key: r1ek3rs
