@@ -1,7 +1,11 @@
 notifiers:
   console:
-    report: failure
+    report: always
     threshold: 0
+  email:
+    report: always
+    to:
+      - admin@example.com
   slack:
     report: failure
     threshold: 600
@@ -35,52 +39,31 @@ checks:
   ping:
     localhost:
       host: 127.0.0.1
-      # optional
       count: 5
       timeout: 30
       sleep: 60
     google:
-      host: google.com
-      # optional
-      count: 3
+      host: 8.8.8.8
+      count: 5
       timeout: 30
       sleep: 60
   hostport:
-    minio:
-      # required
-      host: localhost
-      port: 8000
-      sleep: 60
     mongo:
-      # required
       host: localhost
       port: 27017
       sleep: 60
+    elasticsearch:
+      host: localhost
+      port: 9200
+      sleep: 60
+      timeout: 5
     rabbitmq:
-      # required
       host: localhost
       port: 5672
-      # optional
       sleep: 60
       timeout: 5
     clowder:
-      # required
       host: localhost
       port: 9000
-      # optional
       sleep: 60
       timeout: 5
-  download:
-    clowder:
-      url: "http://localhost:9000"
-      # optional
-      sleep: 900
-      threshold: 2
-      timeout: 5
-
-      # TODO: support headers / verification of downloaded data
-      size: 7777
-      contains: string to match
-      header:
-        key: value
-        X-Api-Key: r1ek3rs

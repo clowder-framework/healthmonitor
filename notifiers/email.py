@@ -2,10 +2,10 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from smtplib import SMTP
 
-import notifier
+from .notifier import HealthNotifier
 
 
-class EmailNotifier(notifier.HealthNotifier):
+class EmailNotifier(HealthNotifier):
     """
     The email notifier. This will notify people using email. The following configuration is
     supported (as well as the values from the HealthNotifier such as threshold and report.
@@ -42,15 +42,16 @@ class EmailNotifier(notifier.HealthNotifier):
         msg['Subject'] = f'{self.prefix} {result["status"]} - {result["label"]}'
 
         if result['status'] == 'success':
-            txt = 'The following checks are now successful:\n\n'
+            txt = 'The following checks are now successful:\n'
         else:
             txt = 'The following checks are now failing:\n'
-        # txt += f'- {result['message']}\n'
-        txt += '\n'
-        txt += f'The configuration for "{result["check"]}" is:\n'
-        for k, v in result.values():
-            if k not in ['check', 'message', 'status']:
-                txt += f'- {k} = {v}\n'
+        txt += f'- {result["check"]} : {result["label"]}\n'
+        if "message" in result:
+            txt += f'  - {result["message"]}\n'
+        if "config" in result:
+            txt += f'  - config:\n'
+            for k, v in result['config'].items():
+                txt += f'    - {k} = {v}\n'
         msg.attach(MIMEText(txt, 'plain'))
 
         # send the actual message

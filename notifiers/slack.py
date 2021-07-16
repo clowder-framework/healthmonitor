@@ -1,10 +1,10 @@
 import requests
 import json
 
-import notifier
+from .notifier import HealthNotifier
 
 
-class SlackNotifier(notifier.HealthNotifier):
+class SlackNotifier(HealthNotifier):
     def __init__(self, config):
         super().__init__("slack", config)
         self.webhook = config['webhook']
