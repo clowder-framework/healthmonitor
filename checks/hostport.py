@@ -31,11 +31,4 @@ class HostPortMonitor(Monitor):
                 #connection.shutdown()
                 connection.close()
 
-        return {
-            "status": result,
-            "check": self.name,
-            "label": self.label,
-            "message": message,
-            "config": self.config,
-            "measurement": data
-        }
+        return self.report(result, message, data)

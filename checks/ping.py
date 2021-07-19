@@ -9,12 +9,12 @@ class PingMonitor(Monitor):
 
         self.host = config['host']
         self.count = int(config.get('count', 5))
+        self.loss = float(config.get('loss', 99))
         self.timeout = int(config.get('timeout', 30))
 
     # ping a server, returns data number of packets send, and round trip times
     def check(self):
         self.logger.debug(f"Running {self.count} pings to {self.host}")
-        results = []
 
         data = {
             'packets': self.count
@@ -47,7 +47,7 @@ class PingMonitor(Monitor):
         except Exception as e:
             data["loss"] = 100
 
-        if data["loss"] == 0:
+        if data["loss"] < self.loss:
             data["state"] = 'success'
             self.logger.debug(f"{self.host}: ping success!")
             message = "Host is reachable."
@@ -56,11 +56,4 @@ class PingMonitor(Monitor):
             self.logger.debug(f"{self.host}: ping failed! ({data['loss']}% packet loss)")
             message = f"Host is not reachable ({data['loss']}% packet loss)"
 
-        return {
-            "status": data["state"],
-            "check": self.name,
-            "label": self.label,
-            "message": message,
-            "config": self.config,
-            "measurement": data
-        }
+        return self.report(data["state"], message, data)

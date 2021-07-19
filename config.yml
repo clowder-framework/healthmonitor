@@ -1,23 +1,23 @@
 notifiers:
   console:
-    report: always
+    report: change
     threshold: 0
-  email:
-    report: always
-    to:
-      - admin@example.com
-  slack:
-    report: failure
-    threshold: 600
-    # required
-    webhook: https://hooks.slack.com/services/some/secret/code
-    # optional?
-    channel: alerts
-  msteams:
-    report: failure
-    threshold: 600
-    # required
-    webhook: https://XYZ.webhook.office.com/webhookb2/id/IncomingWebhook/more/secret
+#  email:
+#    report: change
+#    to:
+#      - admin@example.com
+#  slack:
+#    report: failure
+#    threshold: 600
+#    # required
+#    webhook: https://hooks.slack.com/services/some/secret/code
+#    # optional?
+#    channel: alerts
+#  msteams:
+#    report: failure
+#    threshold: 600
+#    # required
+#    webhook: https://XYZ.webhook.office.com/webhookb2/id/IncomingWebhook/more/secret
   influxdb:
     report: always
     threshold: 0
@@ -26,22 +26,28 @@ notifiers:
     username: admin
     password: admin
     database: clowder
-    measurement: health
     # optional
     port: 8086
-  rabbitmq:
-    report: always
-    threshold: 0
-    # required
-    uri: "http://localhost:5672/%2F"
-    exchange: "eventsink"
+    tags:
+      server: mymachine1
+#  rabbitmq:
+#    report: always
+#    threshold: 0
+#    # required
+#    uri: "http://localhost:5672/%2F"
+#    exchange: "eventsink"
 checks:
+  filewrite:
+    tmp:
+      file: /tmp/testfile
   ping:
     localhost:
       host: 127.0.0.1
       count: 5
       timeout: 30
       sleep: 60
+      # optional
+      loss: 99 # amount of loss to consider a failure
     google:
       host: 8.8.8.8
       count: 5

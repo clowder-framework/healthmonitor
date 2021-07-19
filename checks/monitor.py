@@ -16,22 +16,21 @@ class Monitor(object):
         self.sleep = int(config.get('sleep', 60))
         self.check_thread = None
 
+        self.starttime = None
+
         self.logger = logging.getLogger(f"{check}-{label}-monitor")
 
     def check(self):
-        return {
-            "status": "success",
-            "check": self.name,
-            "label": self.label,
-            "message": "no test configured"
-        }
+        return self.report("success", "no test configured")
 
     def run(self):
         while self.check_thread:
             self.logger.debug("Running check " + self.label)
             result = None
+
             try:
                 # Run our handler with the given config
+                self.starttime = time.time_ns()
                 result = self.check()
             except:
                 self.logger.exception(f"Error running check_handler: {self.label}")
@@ -49,20 +48,25 @@ class Monitor(object):
                 for notifier in self.notifiers:
                     self.logger.debug(self.label + " checking notifier: " + notifier.label)
 
-                    # 'always' or 'failure' (default)
+                    # 'always', 'change' or 'failure' (default)
                     report = notifier.report
 
                     # Report successes only if requested and over the threshold
                     try:
-                        if report == 'always' and self.successesSinceLastFailure == notifier.threshold:
-                            self.logger.debug(self.label + " reporting success: " + notifier.label)
+                        if report == 'always':
+                            self.logger.debug(self.label + " reporting always: " + notifier.label)
                             notifier.notify(result)
-                        # Report failures only if threshold is surpassed
-                        elif self.failuresSinceLastSuccess == notifier.threshold:
+                        elif report == 'change' and self.successesSinceLastFailure == notifier.threshold:
+                            self.logger.debug(self.label + " reporting change: " + notifier.label)
+                            notifier.notify(result)
+                        elif report == 'change' and self.failuresSinceLastSuccess == notifier.threshold:
+                            self.logger.debug(self.label + " reporting change: " + notifier.label)
+                            notifier.notify(result)
+                        elif report == 'failure' and self.failuresSinceLastSuccess == notifier.threshold:
                             self.logger.debug(self.label + " reporting failure: " + notifier.label)
                             notifier.notify(result)
                         else:
-                            self.logger.debug(f"Skipping report: {self.label}-{notifier.label} " +
+                            self.logger.debug(f"Skipping report {report}: {self.label}-{notifier.label} " +
                                               f"- faililures={self.failuresSinceLastSuccess} " +
                                               f"/ successes={self.successesSinceLastFailure} " +
                                               f"/ threshold={notifier.threshold})")
@@ -70,6 +74,17 @@ class Monitor(object):
                         self.logger.exception(f"Error calling notifier: {self.label}-{notifier.label}")
 
             time.sleep(self.sleep)
+
+    def report(self, status, message, measurement={}):
+        measurement['elapsed'] = time.time_ns() - self.starttime
+        return {
+            "status": status,
+            "check": self.name,
+            "label": self.label,
+            "message": message,
+            "config": self.config,
+            "measurement": measurement
+        }
 
     def start(self):
         # noop if Timer is already running

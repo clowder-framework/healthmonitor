@@ -38,26 +38,18 @@ def setup_checks(checks_conf, notifiers_list):
                 monitor = checks.HostPortMonitor(label, config, notifiers_list)
                 monitor.start()
                 monitors.append(monitor)
-    # if 'ping' in checks_conf:
-    #     for label in checks_conf['ping']:
-    #         ping_target = checks_conf['ping'][label]
-    #         ping_monitor = HealthMonitor('ping-' + label, server.ping, ping_target, notifiers_list)
-    #         ping_monitor.start()
-    #         monitors.append(ping_monitor)
-    #
-    # if 'hostport' in checks_conf:
-    #     for label in checks_conf['hostport']:
-    #         hostport_target = checks_conf['hostport'][label]
-    #         hostport_monitor = HealthMonitor('hostport-' + label, server.hostport, hostport_target, notifiers_list)
-    #         hostport_monitor.start()
-    #         monitors.append(hostport_monitor)
-    #
-    # if 'download' in checks_conf:
-    #     for label in checks_conf['download']:
-    #         download_target = checks_conf['download'][label]
-    #         download_monitor = HealthMonitor('download-' + label, server.download_data, download_target, notifiers_list)
-    #         download_monitor.start()
-    #         monitors.append(download_monitor)
+        elif k == 'filewrite':
+            for label, config in v.items():
+                monitor = checks.FileWriteMonitor(label, config, notifiers_list)
+                monitor.start()
+                monitors.append(monitor)
+        # elif k == 'download':
+        #     for label, config in v.items():
+        #         monitor = checks.DownloadMonitor(label, config, notifiers_list)
+        #         monitor.start()
+        #         monitors.append(monitor)
+        else:
+            logging.warning(f"Unknown check '{name}'")
 
     return monitors
 
@@ -74,6 +66,9 @@ def setup_notifiers(notifiers_conf):
             health_notifiers.append(notifier)
         elif name == 'email':
             notifier = notifiers.EmailNotifier(config)
+            health_notifiers.append(notifier)
+        elif name == 'influxdb':
+            notifier = notifiers.InfluxDBNotifier(config)
             health_notifiers.append(notifier)
         else:
             logging.warning(f"Unknown notifier '{name}'")
