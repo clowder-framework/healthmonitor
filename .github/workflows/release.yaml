@@ -1,4 +1,4 @@
-name: Release Charts
+name: Create Release
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
         id: release_info
         run: |
           version="$(awk '/^## / { print $2 }' CHANGELOG.md | grep -v -i 'unreleased' | head -1)"
-          changelog="$(sed -e "1,/^## ${version}/d" -e "/^##/,\$d" -e '/^$/d' CHANGELOG.md)"
+          changelog="$(sed -e "1,/^## ${version}/d" -e "/^## /,\$d" CHANGELOG.md)"
           changelog="${changelog//'%'/'%25'}"
           changelog="${changelog//$'\n'/'%0A'}"
           changelog="${changelog//$'\r'/'%0D'}"
