@@ -11,7 +11,10 @@ Initial release.
 This supports the following checks:
 - hostport
 - ping
+- filewrite
 
 This supports the following notifiers:
 - console
 - email
+- influxdb
+- slack
