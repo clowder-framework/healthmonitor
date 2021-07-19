@@ -35,7 +35,6 @@ jobs:
         run: |
           version="$(awk '/^## / { print $2 }' CHANGELOG.md | grep -v -i 'unreleased' | head -1)"
           echo "VERSION=${version}" >> $GITHUB_ENV
-          echo "VERSION = ${version}"
           tags=""
           oldversion=""
           while [ "${oldversion}" != "${version}" ]; do
@@ -45,7 +44,6 @@ jobs:
           done
           tags="latest,${tags}"
           echo "TAGS=${tags}" >> $GITHUB_ENV
-          echo "TAGS    = ${tags}"
 
       # build the docker image, this will always run to make sure
       # the Dockerfile still works.
