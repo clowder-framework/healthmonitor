@@ -1,6 +1,6 @@
 notifiers:
   console:
-    report: change
+    report: always
     threshold: 0
 #  email:
 #    report: change
@@ -8,28 +8,31 @@ notifiers:
 #      - admin@example.com
 #  slack:
 #    report: failure
-#    threshold: 600
+#    threshold: 0
 #    # required
 #    webhook: https://hooks.slack.com/services/some/secret/code
 #    # optional?
 #    channel: alerts
+#    user: Bob
+#    tags:
+#      server: foobar
 #  msteams:
 #    report: failure
 #    threshold: 600
 #    # required
 #    webhook: https://XYZ.webhook.office.com/webhookb2/id/IncomingWebhook/more/secret
-  influxdb:
-    report: always
-    threshold: 0
-    # required
-    hostname: localhost
-    username: admin
-    password: admin
-    database: clowder
-    # optional
-    port: 8086
-    tags:
-      server: mymachine1
+#  influxdb:
+#    report: always
+#    threshold: 0
+#    # required
+#    hostname: localhost
+#    username: admin
+#    password: admin
+#    database: clowder
+#    # optional
+#    port: 8086
+#    tags:
+#      server: mymachine1
 #  rabbitmq:
 #    report: always
 #    threshold: 0
@@ -37,6 +40,11 @@ notifiers:
 #    uri: "http://localhost:5672/%2F"
 #    exchange: "eventsink"
 checks:
+  download:
+    clowder:
+      url: "https://localhost/api/files/5fad53bfe4b00dcab417b69c/blob"
+      headers:
+        X-Api-Key: "some-secret-uuid"
   filewrite:
     tmp:
       file: /tmp/testfile

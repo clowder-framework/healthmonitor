@@ -4,8 +4,8 @@ from checks.monitor import Monitor
 
 
 class PingMonitor(Monitor):
-    def __init__(self, label, config, notofiers):
-        super().__init__("ping", label, config, notofiers)
+    def __init__(self, label, config, notifiers):
+        super().__init__("ping", label, config, notifiers)
 
         self.host = config['host']
         self.count = int(config.get('count', 5))

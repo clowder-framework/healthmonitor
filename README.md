@@ -16,8 +16,6 @@ The `checks` section defines what tests we are running against which server targ
 * `ping` - periodically run a `ping` against the target server to verify that the host is still responding
 * `hostport` - periodically attempt to connect to the target `host` / `port` to verify that the port is still alive
 * `filewrite` - periodically tries to write to a file on disk
-  
-Coming soon:
 * `download` - periodically attempt to download bytes from the target url to verify that it is still serving files or data
 
 The `notifiers` section then tells us which mediums should receive our reports about the success and/or failure of those tests. This section supports various suptypes:
@@ -56,6 +54,8 @@ notifiers:
     # optional?
     channel: alerts
     user: alert-bot
+    tags:
+      server: tester1
 checks:
   ping:
     # verify that server is online

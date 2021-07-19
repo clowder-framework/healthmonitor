@@ -43,13 +43,13 @@ def setup_checks(checks_conf, notifiers_list):
                 monitor = checks.FileWriteMonitor(label, config, notifiers_list)
                 monitor.start()
                 monitors.append(monitor)
-        # elif k == 'download':
-        #     for label, config in v.items():
-        #         monitor = checks.DownloadMonitor(label, config, notifiers_list)
-        #         monitor.start()
-        #         monitors.append(monitor)
+        elif k == 'download':
+            for label, config in v.items():
+                monitor = checks.DownloadMonitor(label, config, notifiers_list)
+                monitor.start()
+                monitors.append(monitor)
         else:
-            logging.warning(f"Unknown check '{name}'")
+            logging.warning(f"Unknown check '{k}'")
 
     return monitors
 
