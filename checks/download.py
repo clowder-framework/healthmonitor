@@ -12,7 +12,8 @@ class DownloadMonitor(Monitor):
         self.url = config['url']
         self.timeout = float(config.get('timeout', 10))
         self.headers = config.get('headers', {})
-        if bool(config.get('ssl', True)):
+        validate_ssl = config.get('ssl', True).lower() in ('yes', 'true', 't', 'y', '1')
+        if validate_ssl:
             self.ssl = None
         else:
             self.ssl = ssl.SSLContext()
