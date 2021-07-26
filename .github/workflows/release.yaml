@@ -17,7 +17,7 @@ jobs:
       - name: get release info
         id: release_info
         run: |
-          version="$(awk '/^## / { print $2 }' CHANGELOG.md | grep -v -i 'unreleased' | head -1)"
+          version="$(awk '/^## / { print tolower($2) }' CHANGELOG.md' | head -1)"
           changelog="$(sed -e "1,/^## ${version}/d" -e "/^## /,\$d" CHANGELOG.md)"
           changelog="${changelog//'%'/'%25'}"
           changelog="${changelog//$'\n'/'%0A'}"
@@ -27,6 +27,7 @@ jobs:
 
       - name: create release
         uses: actions/create-release@v1
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.release_info.outputs.version != 'unreleased'
         id: create_release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

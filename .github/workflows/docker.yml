@@ -32,17 +32,22 @@ jobs:
 
       # calculate some variables that are used later
       - name: Version Number
+        id: release_info
         run: |
-          version="$(awk '/^## / { print $2 }' CHANGELOG.md | grep -v -i 'unreleased' | head -1)"
+          version="$(awk '/^## / { print tolower($2) }' CHANGELOG.md' | head -1)"
           echo "VERSION=${version}" >> $GITHUB_ENV
           tags=""
-          oldversion=""
-          while [ "${oldversion}" != "${version}" ]; do
-            oldversion="${version}"
-            tags="${version},${tags}"
-            version=${version%.*}
-          done
-          tags="latest,${tags}"
+          if [ "$version" == "unreleased" ]; then
+            tags="develop"
+          else
+            oldversion=""
+            while [ "${oldversion}" != "${version}" ]; do
+              oldversion="${version}"
+              tags="${version},${tags}"
+              version=${version%.*}
+            done
+            tags="latest,${tags}"
+          fi
           echo "TAGS=${tags}" >> $GITHUB_ENV
 
       # build the docker image, this will always run to make sure
@@ -64,7 +69,7 @@ jobs:
 
       # this will publish to github container registry
       - name: Publish to GitHub
-        if: github.event_name == 'push' && github.repository == env.MAIN_REPO
+        if: github.event_name == 'push' && github.repository == env.MAIN_REPO && github.ref == 'refs/heads/main'
         uses: elgohr/Publish-Docker-Github-Action@2.22
         env:
           VERSION: ${{ env.VERSION }}
@@ -80,7 +85,7 @@ jobs:
 
       # this will publish to the clowder dockerhub repo
       - name: Publish to Docker Hub
-        if: github.event_name == 'push' && github.repository == env.MAIN_REPO
+        if: github.event_name == 'push' && github.repository == env.MAIN_REPO && github.ref == 'refs/heads/main'
         uses: elgohr/Publish-Docker-Github-Action@2.22
         env:
           VERSION: ${{ env.VERSION }}
@@ -96,7 +101,6 @@ jobs:
       # this will update the README of the dockerhub repo
       - name: check file
         id: filecheck
-        if: github.event_name == 'push' && github.repository == env.MAIN_REPO
         run: |
           if [ -e "README.md" ]; then
             echo "##[set-output name=exists;]true"
@@ -104,7 +108,7 @@ jobs:
             echo "##[set-output name=exists;]false"
           fi
       - name: Docker Hub Description
-        if: github.event_name == 'push' && github.repository == env.MAIN_REPO && steps.filecheck.outputs.exists == 'true'
+        if: github.event_name == 'push' && github.repository == env.MAIN_REPO && github.ref == 'refs/heads/main' && steps.release_info.outputs.version != 'unreleased' && steps.filecheck.outputs.exists == 'true'
         uses: peter-evans/dockerhub-description@v2
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
