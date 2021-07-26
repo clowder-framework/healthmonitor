@@ -27,4 +27,4 @@ class FileWriteMonitor(Monitor):
             self.data['state'] = 1
             self.logger.error(f"Could not write to ({self.name}-{self.label}): {self.file}")
 
-        return self.report(result, message, self.data)
+        return self.report(result, message, **self.data)

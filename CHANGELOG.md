@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## unreleased
+
+### Changed
+- timeout in download now applies to actual download time, if download
+  times out it will be recorded as a failure.
+- when download fails, it will still record the download speed.
+
+### Fixed
+- if no ssl was given for download, it would throw an exception
+
 ## 1.1.0 - 2021-07-19
 
 ### Added
