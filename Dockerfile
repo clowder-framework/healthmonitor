@@ -1,4 +1,4 @@
-FROM python:3.7-alpine
+FROM python:3.7-slim
 
 ENV HEALTHMONITOR_CONFIG_FILE="config.yml"
 
