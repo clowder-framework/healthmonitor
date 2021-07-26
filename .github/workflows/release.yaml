@@ -17,7 +17,7 @@ jobs:
       - name: get release info
         id: release_info
         run: |
-          version="$(awk '/^## / { print tolower($2) }' CHANGELOG.md' | head -1)"
+          version="$(awk '/^## / { print tolower($2) }' CHANGELOG.md | head -1)"
           changelog="$(sed -e "1,/^## ${version}/d" -e "/^## /,\$d" CHANGELOG.md)"
           changelog="${changelog//'%'/'%25'}"
           changelog="${changelog//$'\n'/'%0A'}"

@@ -34,7 +34,7 @@ jobs:
       - name: Version Number
         id: release_info
         run: |
-          version="$(awk '/^## / { print tolower($2) }' CHANGELOG.md' | head -1)"
+          version="$(awk '/^## / { print tolower($2) }' CHANGELOG.md | head -1)"
           echo "VERSION=${version}" >> $GITHUB_ENV
           tags=""
           if [ "$version" == "unreleased" ]; then
