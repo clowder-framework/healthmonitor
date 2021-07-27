@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - timeout in download now applies to actual download time, if download
   times out it will be recorded as a failure.
 - when download fails, it will still record the download speed.
+- if a checks fails and then succeeds, do not send a message if threshold
+  is greater than 1.
 
 ### Fixed
 - if no ssl was given for download, it would throw an exception

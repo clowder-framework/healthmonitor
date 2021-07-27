@@ -16,6 +16,8 @@ class Monitor(object):
         self.sleep = int(config.get('sleep', 60))
         self.check_thread = None
 
+        self.last_state = {k: "success" for k in notifiers}
+
         self.starttime = None
 
         self.logger = logging.getLogger(f"{check}-{label}-monitor")
@@ -57,14 +59,20 @@ class Monitor(object):
                             self.logger.debug(self.label + " reporting always: " + notifier.label)
                             notifier.notify(result)
                         elif report == 'change' and self.successesSinceLastFailure == notifier.threshold:
-                            self.logger.debug(self.label + " reporting change: " + notifier.label)
-                            notifier.notify(result)
+                            if self.last_state[notifier] != result['status']:
+                                self.logger.debug(self.label + " reporting change: " + notifier.label)
+                                notifier.notify(result)
+                                self.last_state[notifier] = result['status']
                         elif report == 'change' and self.failuresSinceLastSuccess == notifier.threshold:
-                            self.logger.debug(self.label + " reporting change: " + notifier.label)
-                            notifier.notify(result)
+                            if self.last_state[notifier] != result['status']:
+                                self.logger.debug(self.label + " reporting change: " + notifier.label)
+                                notifier.notify(result)
+                                self.last_state[notifier] = result['status']
                         elif report == 'failure' and self.failuresSinceLastSuccess == notifier.threshold:
-                            self.logger.debug(self.label + " reporting failure: " + notifier.label)
-                            notifier.notify(result)
+                            if self.last_state[notifier] != result['status']:
+                                self.logger.debug(self.label + " reporting failure: " + notifier.label)
+                                notifier.notify(result)
+                                self.last_state[notifier] = result['status']
                         else:
                             self.logger.debug(f"Skipping report {report}: {self.label}-{notifier.label} " +
                                               f"- faililures={self.failuresSinceLastSuccess} " +
