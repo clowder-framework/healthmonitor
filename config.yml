@@ -40,6 +40,10 @@ notifiers:
 #    uri: "http://localhost:5672/%2F"
 #    exchange: "eventsink"
 checks:
+  random:
+    num1:
+      mark: 0.5
+      sleep: 1
   download:
     clowder:
       url: "https://localhost/api/files/5fad53bfe4b00dcab417b69c/blob"

@@ -48,6 +48,11 @@ def setup_checks(checks_conf, notifiers_list):
                 monitor = checks.DownloadMonitor(label, config, notifiers_list)
                 monitor.start()
                 monitors.append(monitor)
+        elif k == 'random':
+            for label, config in v.items():
+                monitor = checks.RandomMonitor(label, config, notifiers_list)
+                monitor.start()
+                monitors.append(monitor)
         else:
             logging.warning(f"Unknown check '{k}'")
 

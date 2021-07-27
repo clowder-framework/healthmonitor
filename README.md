@@ -17,6 +17,7 @@ The `checks` section defines what tests we are running against which server targ
 * `hostport` - periodically attempt to connect to the target `host` / `port` to verify that the port is still alive
 * `filewrite` - periodically tries to write to a file on disk
 * `download` - periodically attempt to download bytes from the target url to verify that it is still serving files or data
+* `random` - generates a random number [0, 1] and checks to see if it is above or below a failure mark.
 
 The `notifiers` section then tells us which mediums should receive our reports about the success and/or failure of those tests. This section supports various suptypes:
 * `console` - print successes and/or failure to the console

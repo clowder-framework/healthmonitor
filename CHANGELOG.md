@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## unreleased
 
+### Added
+- Random number monitor, given a mark randomly generates a number and
+  checks it with the mark.
+
 ### Changed
 - timeout in download now applies to actual download time, if download
   times out it will be recorded as a failure.
