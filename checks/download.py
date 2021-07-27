@@ -1,16 +1,15 @@
 import time
 import requests
-import eventlet
 
 from checks.monitor import Monitor
 
+# disable warnings in case of ssl = false
+import urllib3
+urllib3.disable_warnings()
 
 class DownloadMonitor(Monitor):
     def __init__(self, label, config, notifiers):
         super().__init__("download", label, config, notifiers)
-
-        # add interrupt to socket connection
-        eventlet.monkey_patch(socket=True)
 
         self.url = config['url']
         self.timeout = float(config.get('timeout', 10))
@@ -27,13 +26,20 @@ class DownloadMonitor(Monitor):
             self.logger.debug(f"Attempting to download from {self.url}...")
             res = requests.get(self.url, stream=True, headers=self.headers, timeout=self.timeout, verify=self.ssl)
             res.raise_for_status()
-            with eventlet.Timeout(self.timeout):
-                for chunk in res.iter_content(chunk_size=1_000_000):
-                    download_bytes += len(chunk)
+            timeout = time.time() + self.timeout
+            for chunk in res.iter_content(chunk_size=1024):
+                download_bytes += len(chunk)
+                if time.time() > timeout:
+                    raise TimeoutError
             self.logger.debug(f"Download success: {self.url}")
             download_diff = (time.time_ns() - download_start) / 1.0e9
             message = f"Finished download {download_bytes} in {download_diff:.3} seconds"
             result = 'success'
+        except TimeoutError:
+            self.logger.debug(f"Download not finished in time: {self.url}")
+            download_diff = (time.time_ns() - download_start) / 1.0e9
+            message = f"Failed to download the file in {self.timeout} seconds"
+            result = 'failure'
         except:
             self.logger.exception(f"Download failed: {self.url}")
             download_diff = (time.time_ns() - download_start) / 1.0e9
