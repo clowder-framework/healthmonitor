@@ -45,6 +45,54 @@ def setup_checks(checks_conf, notifiers_list):
     return monitors
 
 
+def load_checks(args, health_notifiers):
+    health_checks = []
+
+    # Set up checks using environment variables
+    if os.getenv("CHECKS", ""):
+        config = yaml.safe_load(os.getenv("CHECKS", "{}"))
+        health_checks.extend(setup_checks(config, health_notifiers))
+    if os.getenv("CONFIG", ""):
+        config = yaml.safe_load(os.getenv("CONFIG", "{}"))
+        if 'checks' in config:
+            health_checks.extend(setup_checks(config, health_notifiers))
+    if os.getenv("CHECKS_FILE", ""):
+        with open(os.getenv("CHECKS_FILE", ""), 'r') as f:
+            config = yaml.load(f, Loader=yaml.BaseLoader)
+            health_checks.extend(setup_checks(config, health_notifiers))
+    if os.getenv("CONFIG_FILE", ""):
+        with open(os.getenv("CONFIG_FILE", ""), 'r') as f:
+            config = yaml.load(f, Loader=yaml.BaseLoader)
+            health_checks.extend(setup_checks(config['checks'], health_notifiers))
+    elif os.getenv("HEALTHMONITOR_CONFIG_FILE", ""):
+        with open(os.getenv("HEALTHMONITOR_CONFIG_FILE", ""), 'r') as f:
+            config = yaml.load(f, Loader=yaml.BaseLoader)
+            health_checks.extend(setup_checks(config['checks'], health_notifiers))
+
+    # Set up checks using arguments
+    if args.checks:
+        with open(args.checks, 'r') as f:
+            config = yaml.load(f, Loader=yaml.BaseLoader)
+            health_checks.extend(setup_checks(config, health_notifiers))
+    if args.config:
+        for config_file in args.config:
+            with open(config_file, 'r') as f:
+                config = yaml.load(f, Loader=yaml.BaseLoader)
+                health_checks.extend(setup_checks(config['checks'], health_notifiers))
+    elif args.config_file:
+        with open(args.config_file, 'r') as f:
+            config = yaml.load(f, Loader=yaml.BaseLoader)
+            health_checks.extend(setup_checks(config['checks'], health_notifiers))
+
+    # fallback in case nothing was specified
+    if not health_checks:
+        with open("config.yml", 'r') as f:
+            config = yaml.load(f, Loader=yaml.BaseLoader)
+            health_checks.extend(setup_checks(config['checks'], health_notifiers))
+
+    return health_checks
+
+
 def setup_notifiers(notifiers_conf):
     health_notifiers = []
 
@@ -70,80 +118,80 @@ def setup_notifiers(notifiers_conf):
     return health_notifiers
 
 
-if __name__ == "__main__":
-    logging.Formatter.converter = time.gmtime
-    logging.basicConfig(level=logging.INFO,
-                        datefmt='%Y-%m-%dT%H:%M:%S',
-                        format='%(asctime)-15s.%(msecs)03dZ %(levelname)-7s [%(threadName)-15s] : %(name)s - %(message)s')
-    logging.getLogger("requests.packages.urllib3").setLevel(logging.WARNING)
-    base_logger = logging.getLogger("HealthMonitor")
+def load_notifiers(args):
+    health_notifiers = []
 
+    # Set up notifiers using environment variables
+    if os.getenv("NOTIFIERS", ""):
+        config = yaml.safe_load(os.getenv("NOTIFIERS", "{}"))
+        health_notifiers.extend(setup_notifiers(config))
+    if os.getenv("CONFIG", ""):
+        config = yaml.safe_load(os.getenv("CONFIG", "{}"))
+        if 'notifiers' in config:
+            health_notifiers.extend(setup_notifiers(config['notifiers']))
+    if os.getenv("NOTIFIERS_FILE", ""):
+        with open(os.getenv("NOTIFIERS_FILE", ""), 'r') as f:
+            config = yaml.load(f, Loader=yaml.BaseLoader)
+            health_notifiers.extend(setup_notifiers(config))
+    if os.getenv("CONFIG_FILE", ""):
+        with open(os.getenv("CONFIG_FILE", ""), 'r') as f:
+            config = yaml.load(f, Loader=yaml.BaseLoader)
+            health_notifiers.extend(setup_notifiers(config['notifiers']))
+    elif os.getenv("HEALTHMONITOR_CONFIG_FILE", ""):
+        with open(os.getenv("HEALTHMONITOR_CONFIG_FILE", ""), 'r') as f:
+            config = yaml.load(f, Loader=yaml.BaseLoader)
+            health_notifiers.extend(setup_notifiers(config['notifiers']))
+
+    # Set up notifiers using arguments
+    if args.notifiers:
+        with open(args.notifiers, 'r') as f:
+            config = yaml.load(f, Loader=yaml.BaseLoader)
+            health_notifiers.extend(setup_notifiers(config))
+    if args.config:
+        for config_file in args.config:
+            with open(config_file, 'r') as f:
+                config = yaml.load(f, Loader=yaml.BaseLoader)
+                health_notifiers.extend(setup_notifiers(config['notifiers']))
+    elif args.config_file:
+        with open(args.config_file, 'r') as f:
+            config = yaml.load(f, Loader=yaml.BaseLoader)
+            health_notifiers.extend(setup_notifiers(config['notifiers']))
+
+    # fallback in case nothing was specified
+    if not health_notifiers:
+        with open("config.yml", 'r') as f:
+            config = yaml.load(f, Loader=yaml.BaseLoader)
+            health_notifiers.extend(setup_notifiers(config['notifiers']))
+
+    return health_notifiers
+
+
+def main():
     parser = argparse.ArgumentParser()
-
     parser.add_argument("--config-file",
                         help="file path of the healthmonitor config")
-    parser.add_argument("--config",
+    parser.add_argument("--config", nargs='*',
                         help="file path of the healthmonitor config")
     parser.add_argument("--notifiers", help="file path of the notifiers config")
     parser.add_argument("--checks", help="file path of the monitors config")
-
     args = parser.parse_args()
 
-    health_monitors = []
-    health_notifiers = []
+    health_notifiers = load_notifiers(args)
+    health_checks = load_checks(args, health_notifiers)
+    # noinspection PyBroadException
     try:
-        print (args)
-
-        # Set up notifiers
-        if args.notifiers:
-            with open(args.notifiers, 'r') as f:
-                config = yaml.load(f, Loader=yaml.BaseLoader)
-                health_notifiers.extend(setup_notifiers(config))
-        if args.config:
-            with open(args.config, 'r') as f:
-                config = yaml.load(f, Loader=yaml.BaseLoader)
-                health_notifiers.extend(setup_notifiers(config['notifiers']))
-        elif args.config_file:
-            with open(args.config_file, 'r') as f:
-                config = yaml.load(f, Loader=yaml.BaseLoader)
-                health_notifiers.extend(setup_notifiers(config['notifiers']))
-        else:
-            with open(os.environ.get("HEALTHMONITOR_CONFIG_FILE", "config.yml"), 'r') as f:
-                config = yaml.load(f, Loader=yaml.BaseLoader)
-                health_notifiers.extend(setup_notifiers(config['notifiers']))
-        print(health_notifiers)
-
-        # Set up checks
-        if args.checks:
-            with open(args.checks, 'r') as f:
-                config = yaml.load(f, Loader=yaml.BaseLoader)
-                health_monitors.extend(setup_checks(config, health_notifiers))
-        if args.config:
-            with open(args.config, 'r') as f:
-                config = yaml.load(f, Loader=yaml.BaseLoader)
-                health_monitors.extend(setup_checks(config['checks'], health_notifiers))
-        elif args.config_file:
-            with open(args.config_file, 'r') as f:
-                config = yaml.load(f, Loader=yaml.BaseLoader)
-                health_monitors.extend(setup_checks(config['checks'], health_notifiers))
-        else:
-            with open(os.environ.get("HEALTHMONITOR_CONFIG_FILE", "config.yml"), 'r') as f:
-                config = yaml.load(f, Loader=yaml.BaseLoader)
-                health_monitors.extend(setup_checks(config['checks'], health_notifiers))
-        print(health_monitors)
-
         base_logger.info("HealthMonitors are now running!")
 
         # keep running, and die if any thread stops
         while True:
-            for monitor in health_monitors:
-                monitor.logger.debug("Checking if HealthMonitor is still running: " + monitor.label)
+            for check in health_checks:
+                check.logger.debug("Checking if HealthMonitor is still running: " + check.label)
 
-                if not monitor.is_alive():
-                    monitor.logger.warning("HealthMonitor " + monitor.label + " thread has died: ... Restarting it.")
+                if not check.is_alive():
+                    check.logger.warning("HealthMonitor " + check.label + " thread has died: ... Restarting it.")
                     # Restart the monitor
-                    monitor.cancel()
-                    monitor.start()
+                    check.cancel()
+                    check.start()
 
             # wait one second to make sure threads are still alive
             time.sleep(1)
@@ -153,5 +201,16 @@ if __name__ == "__main__":
         base_logger.exception("exception in healthmonitor, will exit.")
     finally:
         # stop all threads first
-        for m in health_monitors:
+        for m in health_checks:
             m.cancel()
+
+
+if __name__ == "__main__":
+    logging.Formatter.converter = time.gmtime
+    logging.basicConfig(level=logging.INFO,
+                        datefmt='%Y-%m-%dT%H:%M:%S',
+                        format='%(asctime)-15s.%(msecs)03dZ %(levelname)-7s [%(threadName)-15s] : %(name)s - %(message)s')
+    logging.getLogger("requests.packages.urllib3").setLevel(logging.WARNING)
+    base_logger = logging.getLogger("HealthMonitor")
+
+    main()
