@@ -33,6 +33,17 @@ notifiers:
 #    port: 8086
 #    tags:
 #      server: mymachine1
+#  influxdb_v2:
+#    report: always
+#    threshold: 0
+#    # required
+#    url: url
+#    token: token
+#    org: org
+#    bucket: bucket
+#    # optional
+#    tags:
+#      server: mymachine1
 #  rabbitmq:
 #    report: always
 #    threshold: 0

@@ -9,20 +9,6 @@ import notifiers
 import checks
 
 
-# e.g. Example: config.yml
-def parse_config(filename):
-    with open(filename, 'r') as f:
-        config = yaml.load(f, Loader=yaml.BaseLoader)
-
-        # Set up notifiers - what should we do with results?
-        notifiers_list = setup_notifiers(config['notifiers'])
-
-        # Set up checks - how should we gather results?
-        monitors = setup_checks(config['checks'], notifiers_list)
-
-        return monitors
-
-
 # Each check creates its own HealthMonitor
 def setup_checks(checks_conf, notifiers_list):
     monitors = []
@@ -75,6 +61,9 @@ def setup_notifiers(notifiers_conf):
         elif name == 'influxdb':
             notifier = notifiers.InfluxDBNotifier(config)
             health_notifiers.append(notifier)
+        elif name == 'influxdb_v2':
+            notifier = notifiers.InfluxDBV2Notifier(config)
+            health_notifiers.append(notifier)
         else:
             logging.warning(f"Unknown notifier '{name}'")
 
@@ -92,14 +81,56 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--config-file",
-                        default=os.environ.get("HEALTHMONITOR_CONFIG_FILE", "config.yml"),
                         help="file path of the healthmonitor config")
+    parser.add_argument("--config",
+                        help="file path of the healthmonitor config")
+    parser.add_argument("--notifiers", help="file path of the notifiers config")
+    parser.add_argument("--checks", help="file path of the monitors config")
 
     args = parser.parse_args()
 
     health_monitors = []
+    health_notifiers = []
     try:
-        health_monitors = parse_config(args.config_file)
+        print (args)
+
+        # Set up notifiers
+        if args.notifiers:
+            with open(args.notifiers, 'r') as f:
+                config = yaml.load(f, Loader=yaml.BaseLoader)
+                health_notifiers.extend(setup_notifiers(config))
+        if args.config:
+            with open(args.config, 'r') as f:
+                config = yaml.load(f, Loader=yaml.BaseLoader)
+                health_notifiers.extend(setup_notifiers(config['notifiers']))
+        elif args.config_file:
+            with open(args.config_file, 'r') as f:
+                config = yaml.load(f, Loader=yaml.BaseLoader)
+                health_notifiers.extend(setup_notifiers(config['notifiers']))
+        else:
+            with open(os.environ.get("HEALTHMONITOR_CONFIG_FILE", "config.yml"), 'r') as f:
+                config = yaml.load(f, Loader=yaml.BaseLoader)
+                health_notifiers.extend(setup_notifiers(config['notifiers']))
+        print(health_notifiers)
+
+        # Set up checks
+        if args.checks:
+            with open(args.checks, 'r') as f:
+                config = yaml.load(f, Loader=yaml.BaseLoader)
+                health_monitors.extend(setup_checks(config, health_notifiers))
+        if args.config:
+            with open(args.config, 'r') as f:
+                config = yaml.load(f, Loader=yaml.BaseLoader)
+                health_monitors.extend(setup_checks(config['checks'], health_notifiers))
+        elif args.config_file:
+            with open(args.config_file, 'r') as f:
+                config = yaml.load(f, Loader=yaml.BaseLoader)
+                health_monitors.extend(setup_checks(config['checks'], health_notifiers))
+        else:
+            with open(os.environ.get("HEALTHMONITOR_CONFIG_FILE", "config.yml"), 'r') as f:
+                config = yaml.load(f, Loader=yaml.BaseLoader)
+                health_monitors.extend(setup_checks(config['checks'], health_notifiers))
+        print(health_monitors)
 
         base_logger.info("HealthMonitors are now running!")
 

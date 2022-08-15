@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## 1.3.0 - 2022-08-15
+
+### Added
+- added support for influxdb v2 notifier
+- can specify notifiers (--notifiers) and checks (--checks) are seperate files
+
+### Changed
+- config-file options is deprecated in favor for config
+
 ## 1.2.2 - 2021-08-13
 
 ### Fixed
