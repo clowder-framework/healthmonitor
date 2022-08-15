@@ -63,11 +63,13 @@ def load_checks(args, health_notifiers):
     if os.getenv("CONFIG_FILE", ""):
         with open(os.getenv("CONFIG_FILE", ""), 'r') as f:
             config = yaml.load(f, Loader=yaml.BaseLoader)
-            health_checks.extend(setup_checks(config['checks'], health_notifiers))
+            if 'checks' in config:
+                health_checks.extend(setup_checks(config['checks'], health_notifiers))
     elif os.getenv("HEALTHMONITOR_CONFIG_FILE", ""):
         with open(os.getenv("HEALTHMONITOR_CONFIG_FILE", ""), 'r') as f:
             config = yaml.load(f, Loader=yaml.BaseLoader)
-            health_checks.extend(setup_checks(config['checks'], health_notifiers))
+            if 'checks' in config:
+                health_checks.extend(setup_checks(config['checks'], health_notifiers))
 
     # Set up checks using arguments
     if args.checks:
@@ -78,17 +80,20 @@ def load_checks(args, health_notifiers):
         for config_file in args.config:
             with open(config_file, 'r') as f:
                 config = yaml.load(f, Loader=yaml.BaseLoader)
-                health_checks.extend(setup_checks(config['checks'], health_notifiers))
+                if 'checks' in config:
+                    health_checks.extend(setup_checks(config['checks'], health_notifiers))
     elif args.config_file:
         with open(args.config_file, 'r') as f:
             config = yaml.load(f, Loader=yaml.BaseLoader)
-            health_checks.extend(setup_checks(config['checks'], health_notifiers))
+            if 'checks' in config:
+                health_checks.extend(setup_checks(config['checks'], health_notifiers))
 
     # fallback in case nothing was specified
     if not health_checks:
         with open("config.yml", 'r') as f:
             config = yaml.load(f, Loader=yaml.BaseLoader)
-            health_checks.extend(setup_checks(config['checks'], health_notifiers))
+            if 'checks' in config:
+                health_checks.extend(setup_checks(config['checks'], health_notifiers))
 
     return health_checks
 
@@ -136,11 +141,13 @@ def load_notifiers(args):
     if os.getenv("CONFIG_FILE", ""):
         with open(os.getenv("CONFIG_FILE", ""), 'r') as f:
             config = yaml.load(f, Loader=yaml.BaseLoader)
-            health_notifiers.extend(setup_notifiers(config['notifiers']))
+            if 'notifiers' in config:
+                health_notifiers.extend(setup_notifiers(config['notifiers']))
     elif os.getenv("HEALTHMONITOR_CONFIG_FILE", ""):
         with open(os.getenv("HEALTHMONITOR_CONFIG_FILE", ""), 'r') as f:
             config = yaml.load(f, Loader=yaml.BaseLoader)
-            health_notifiers.extend(setup_notifiers(config['notifiers']))
+            if 'notifiers' in config:
+                health_notifiers.extend(setup_notifiers(config['notifiers']))
 
     # Set up notifiers using arguments
     if args.notifiers:
@@ -151,17 +158,20 @@ def load_notifiers(args):
         for config_file in args.config:
             with open(config_file, 'r') as f:
                 config = yaml.load(f, Loader=yaml.BaseLoader)
-                health_notifiers.extend(setup_notifiers(config['notifiers']))
+                if 'notifiers' in config:
+                    health_notifiers.extend(setup_notifiers(config['notifiers']))
     elif args.config_file:
         with open(args.config_file, 'r') as f:
             config = yaml.load(f, Loader=yaml.BaseLoader)
-            health_notifiers.extend(setup_notifiers(config['notifiers']))
+            if 'notifiers' in config:
+                health_notifiers.extend(setup_notifiers(config['notifiers']))
 
     # fallback in case nothing was specified
     if not health_notifiers:
         with open("config.yml", 'r') as f:
             config = yaml.load(f, Loader=yaml.BaseLoader)
-            health_notifiers.extend(setup_notifiers(config['notifiers']))
+            if 'notifiers' in config:
+                health_notifiers.extend(setup_notifiers(config['notifiers']))
 
     return health_notifiers
 
