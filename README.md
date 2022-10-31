@@ -96,7 +96,7 @@ checks:
 ## Usage (Docker)
 Mount in your config file and run a container from the Docker image:
 ```bash
-docker run -it --rm -v $(pwd)/config.yml:/src/confg.yml clowder/healthmonitor
+docker run -it --rm -v $(pwd)/config.yml:/src/config.yml clowder/healthmonitor
 ```
 
 The image should be automatically downloaded if it is not already present on your machine
